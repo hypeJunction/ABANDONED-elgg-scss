@@ -129,17 +129,24 @@ class Compiler {
 		$views = elgg_list_views();
 		foreach ($views as $view) {
 			if (preg_match('/\.(s)?css$/i', $view)) {
+				$compiled_path = $normalize_path("compiled/$view");
+				$raw_path = $normalize_path("raw/$view");
+
 				$bytes = elgg_view($view, [
 					'compile' => false,
 				]);
 				$hash = sha1($bytes);
 				if (!$log[$view] || $log[$view] !== $hash) {
-					$target = $normalize_path("raw/$view");
-					$target_dir = pathinfo($target, PATHINFO_DIRNAME);
+
+					if (is_file($compiled_path)) {
+						unlink($compiled_path);
+					}
+
+					$target_dir = pathinfo($raw_path, PATHINFO_DIRNAME);
 					if (!is_dir($target_dir)) {
 						mkdir($target_dir, 0777, true);
 					}
-					file_put_contents($target, $bytes);
+					file_put_contents($raw_path, $bytes);
 					$log[$view] = $hash;
 					$changes = true;
 				}
