@@ -22,3 +22,5 @@ You can extend any `.css` file with `.scss`
 elgg_extend_view('_variables.scss', '_my_variables.scss');
 elgg_extend_view('elgg.css', 'custom.scss');
 ```
+
+Optionally, you can use `'vars','scss'` hook to set global scss variables.
