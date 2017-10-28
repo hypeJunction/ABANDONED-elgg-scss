@@ -33,35 +33,71 @@ class Compiler {
 	 * @return string
 	 */
 	public static function compile($hook, $view, $output, $params) {
+		$vars = elgg_extract('vars', $params);
+		if (elgg_extract('compile', $vars) === false) {
+			return;
+		}
 
-		$compiler = new \Leafo\ScssPhp\Compiler();
+		$is_partial = function () use ($view) {
+			$parts = explode('/', $view);
+			$last = array_pop($parts);
 
-		$compiler->setImportPaths(elgg_get_config('dataroot') . 'scss_cache/raw/');
+			$path = implode('/', $parts);
+			$checks = [
+				ltrim("{$path}/{$last}", '/'),
+				ltrim("{$path}/_{$last}", '/'),
+			];
 
-		$site_url = elgg_get_site_url();
-		$server_vars = [
-			'base_url' => "'$site_url'",
-		];
+			foreach ($checks as $check) {
+				if (elgg_view_exists($check) && strpos($last, '_') === 0) {
+					return true;
+				}
+			}
 
-		$server_vars = elgg_trigger_plugin_hook('vars', 'scss', $params, $server_vars);
-		$compiler->setVariables($server_vars);
+			return false;
+		};
 
-		$compiler->setFormatter(Compressed::class);
+		if ($is_partial()) {
+			// no point in compiling partials
+			return '';
+		}
+
+		$normalize_path = function ($path) {
+			return elgg_get_config('dataroot') . 'scss_cache/' . ltrim($path, '/');
+		};
+
+		$compiled_path = $normalize_path("compiled/$view");
+		$raw_path = $normalize_path("raw/$view");
 
 		try {
-			if (file_exists(elgg_get_config('dataroot') . 'scss_cache/compiled/' . $view)) {
-				return file_get_contents(elgg_get_config('dataroot') . 'scss_cache/compiled/' . $view);
+			if (file_exists($compiled_path)) {
+				return file_get_contents($compiled_path);
 			}
-			$compiled = $compiler->compile($output, elgg_get_config('dataroot') . 'scss_cache/raw/' . $view);
-			$target = elgg_get_config('dataroot') . 'scss_cache/compiled/' . $view;
-			$target_dir = pathinfo($target, PATHINFO_DIRNAME);
+
+			$compiler = new \Leafo\ScssPhp\Compiler();
+
+			$compiler->setImportPaths($normalize_path("raw/"));
+
+			$site_url = elgg_get_site_url();
+			$server_vars = [
+				'base_url' => "'$site_url'",
+			];
+			$server_vars = elgg_trigger_plugin_hook('vars', 'scss', $params, $server_vars);
+			$compiler->setVariables($server_vars);
+
+			$compiler->setFormatter(Compressed::class);
+
+			$compiled = $compiler->compile($output, $raw_path);
+
+			$target_dir = pathinfo($compiled_path, PATHINFO_DIRNAME);
 			if (!is_dir($target_dir)) {
 				mkdir($target_dir, 0777, true);
 			}
-			file_put_contents(elgg_get_config('dataroot') . 'scss_cache/compiled/' . $view, $compiled);
+			file_put_contents($compiled_path, $compiled);
+
 			return $compiled;
 		} catch (\Exception $ex) {
-			error_log('SCSS compile exception: ' . $ex->getMessage());
+			error_log("'$view' compilation failed with error: " . $ex->getMessage());
 
 			return '';
 		}
@@ -72,8 +108,14 @@ class Compiler {
 	 * @return void
 	 */
 	public static function cache() {
-		if (file_exists(elgg_get_config('dataroot') . 'scss_cache.json')) {
-			$json = file_get_contents(elgg_get_config('dataroot') . 'scss_cache.json');
+		$normalize_path = function ($path) {
+			return elgg_get_config('dataroot') . 'scss_cache/' . ltrim($path, '/');
+		};
+
+		$log_file = $normalize_path('scss_cache.json');
+
+		if (file_exists($log_file)) {
+			$json = file_get_contents($log_file);
 			$log = json_decode($json, true);
 		} else {
 			$log = [];
@@ -92,7 +134,7 @@ class Compiler {
 				]);
 				$hash = sha1($bytes);
 				if (!$log[$view] || $log[$view] !== $hash) {
-					$target = elgg_get_config('dataroot') . 'scss_cache/raw/' . $view;
+					$target = $normalize_path("raw/$view");
 					$target_dir = pathinfo($target, PATHINFO_DIRNAME);
 					if (!is_dir($target_dir)) {
 						mkdir($target_dir, 0777, true);
@@ -105,7 +147,7 @@ class Compiler {
 		}
 
 		if ($changes) {
-			file_put_contents(elgg_get_config('dataroot') . 'scss_cache.json', json_encode($log));
+			file_put_contents($log_file, json_encode($log));
 		}
 	}
 
@@ -115,6 +157,5 @@ class Compiler {
 	 */
 	public static function flush() {
 		_elgg_rmdir(elgg_get_config('dataroot') . 'scss_cache/');
-		unlink(elgg_get_config('dataroot') . 'scss_cache.json');
 	}
 }

@@ -24,3 +24,13 @@ elgg_extend_view('elgg.css', 'custom.scss');
 ```
 
 Optionally, you can use `'vars','scss'` hook to set global scss variables.
+
+## Conventions
+
+* Prefix your partial scss sheets with an underscore to ensure they are not needlessly compiled, e.g. `_reusable.scss`
+
+* You can use `scss` syntax in your `css` files. This might come handy when you want to overwrite a core css view. It is also easier to work with `.css` files as they are treated as simplecache resources by default.
+
+* The compiler seems to have trouble with full sheets located outside of the root. If you notice that compiler is complaining, add a view to the root and import your files located elsewhere, e.g. if your sheet is importing partials and located in `/views/default/my-theme/elements/sheet.scss`, it may not compile. Add a prefixed sheet to `/views/default/my-theme.sheet.scss` and add `@import "my-theme/elements/sheet";`
+
+
