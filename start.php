@@ -9,17 +9,9 @@
  * @copyright Copyright (c) 2017, Ismayil Khayredinov
  */
 
-use hypeJunction\Scss\Compiler;
-
 require_once __DIR__ . '/autoloader.php';
 
-elgg_register_event_handler('init', 'system', function() {
-	$views = elgg_list_views();
-	foreach ($views as $view) {
-		if (preg_match('/\.scss$/i', $view)) {
-			elgg_register_plugin_hook_handler('view', $view, [Compiler::class, 'compileScssView']);
-		}
-	}
-});
+use hypeJunction\Scss\Compiler;
 
-
+elgg_register_event_handler('init', 'system', [Compiler::class, 'init'], 999);
+elgg_register_event_handler('cache:flush', 'system', [Compiler::class, 'flush'], 999);
