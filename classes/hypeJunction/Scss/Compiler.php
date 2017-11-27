@@ -97,7 +97,7 @@ class Compiler {
 
 			return $compiled;
 		} catch (\Exception $ex) {
-			error_log("'$view' compilation failed with error: " . $ex->getMessage());
+			elgg_log("'$view' compilation failed with error: " . $ex->getMessage(), 'NOTICE');
 
 			return '';
 		}
@@ -125,31 +125,44 @@ class Compiler {
 			return;
 		}
 
+		$data = _elgg_services()->views->getInspectorData();
+
 		$changes = false;
-		$views = elgg_list_views();
+		$regenerate = function ($view) use (&$regenerate, &$changes, &$log, $normalize_path, $data) {
+			$compiled_path = $normalize_path("compiled/$view");
+			$raw_path = $normalize_path("raw/$view");
+
+			$bytes = elgg_view($view, [
+				'compile' => false,
+			]);
+			$hash = sha1($bytes);
+			if (!$log[$view] || $log[$view] !== $hash) {
+
+				if (is_file($compiled_path)) {
+					unlink($compiled_path);
+				}
+
+				$target_dir = pathinfo($raw_path, PATHINFO_DIRNAME);
+				if (!is_dir($target_dir)) {
+					mkdir($target_dir, 0777, true);
+				}
+				file_put_contents($raw_path, $bytes);
+				$log[$view] = $hash;
+				$changes = true;
+
+				foreach ($data['extensions'] as $extended => $extensions) {
+					if (in_array($view, $extensions)) {
+						$regenerate($extended);
+						break;
+					}
+				}
+			}
+		};
+
+		$views = array_keys($data['locations']['default']);
 		foreach ($views as $view) {
 			if (preg_match('/\.(s)?css$/i', $view)) {
-				$compiled_path = $normalize_path("compiled/$view");
-				$raw_path = $normalize_path("raw/$view");
-
-				$bytes = elgg_view($view, [
-					'compile' => false,
-				]);
-				$hash = sha1($bytes);
-				if (!$log[$view] || $log[$view] !== $hash) {
-
-					if (is_file($compiled_path)) {
-						unlink($compiled_path);
-					}
-
-					$target_dir = pathinfo($raw_path, PATHINFO_DIRNAME);
-					if (!is_dir($target_dir)) {
-						mkdir($target_dir, 0777, true);
-					}
-					file_put_contents($raw_path, $bytes);
-					$log[$view] = $hash;
-					$changes = true;
-				}
+				$regenerate($view);
 			}
 		}
 
