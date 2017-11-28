@@ -1,6 +1,8 @@
-# SCSS Compiler for Elgg
+# **ABANDONED** SCSS Compiler for Elgg
 
 ![Elgg 2.3](https://img.shields.io/badge/Elgg-2.3-orange.svg?style=flat-square)
+
+After a lot of struggling, I have abandoned the idea of trying to compile SCSS server-side. There are too many pitfalls and things can go seriously wrong. Use command line tools and serve compiled CSS from disk rather than trying to compiled it at runtime.
 
 ## Features
 
